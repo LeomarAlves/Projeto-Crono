@@ -3,8 +3,57 @@ from tkinter import filedialog, messagebox
 import pdfplumber
 import re
 import json
+import os
 
 dados_extraidos = []
+
+def abrir_janela_tabela():
+    janela_tabela = tk.Toplevel()
+    janela_tabela.title("Nova Tabela de Pontuação")
+    janela_tabela.geometry("600x300")
+
+    tk.Label(janela_tabela, text="Nome da Tabela:").pack(pady=10)
+    entrada_nome = tk.Entry(janela_tabela, width=50)
+    entrada_nome.pack()
+
+    tk.Label(janela_tabela, text="Pontos:").pack(pady=10)
+    entrada_pontos = tk.Entry(janela_tabela, width=60)
+    entrada_pontos.pack()
+
+    def salvar_tabela():
+        nome = entrada_nome.get().strip()
+        texto_pontos = entrada_pontos.get().strip()
+        if not nome or not texto_pontos:
+            messagebox.showwarning("Aviso", "Preencha todos os campos.")
+            return
+        
+        try:
+            pontos_lista = [int(p.strip()) for p in texto_pontos.split(",")]
+            pontos_dict = {str(i+1): pontos_lista[i] for i in range(len(pontos_lista))}
+
+            nova_tabela = {
+                "nome": nome,
+                "pontos": pontos_dict
+            }
+
+            caminho = "tabelas_pontuacao.json"
+            if os.path.exists(caminho):
+                with open(caminho, "r", encoding="utf-8") as f:
+                    todas = json.load(f)
+            else:
+                todas = []
+            
+            todas.append(nova_tabela)
+
+            with open(caminho, "w", encoding="utf-8") as f:
+                json.dump(todas, f, ensure_ascii=False, indent=2)
+
+            messagebox.showinfo("Sucesso", "Tabela salva com sucesso.")
+            janela_tabela.destroy()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao salvar tabela: {e}")
+    
+    tk.Button(janela_tabela, text="Salvar Tabela", command=salvar_tabela).pack(pady=10)
 
 def extrair_info_pilotos(texto):
     linhas = [linha.strip() for linha in texto.splitlines() if linha.strip() != ""]
@@ -87,9 +136,14 @@ def selecionar_pdf():
 
         if resultados:
             caixa_texto.delete("1.0", tk.END)
-            caixa_texto.insert(tk.END, "\n".join(resultados))
+            linhas_formatadas = [
+                f"Posição: {d['posicao']} | Nº: {d['numero']} | Nome: {d['nome']} | Categoria: {d['categoria']}"
+                for d in resultados
+            ]
+            caixa_texto.insert(tk.END, "\n".join(linhas_formatadas))
+
         else:
-            messagebox.showwarning("Aviso", "Nenhuma informação de piloto foi encontrada.")
+                messagebox.showwarning("Aviso", "Nenhuma informação de piloto foi encontrada.")
 
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao processar o PDF: {e}")
@@ -127,6 +181,9 @@ botao = tk.Button(janela, text="Selecionar PDF", command=selecionar_pdf)
 botao.pack(pady=10)
 botao_salvar = tk.Button(janela, text="Salvar", command=salvar_json)
 botao_salvar.pack(pady=10)
+
+btn_nova_tabela = tk.Button(janela, text="Criar Nova Pontuação", command=abrir_janela_tabela)
+btn_nova_tabela.pack(pady=10)
 
 
 caixa_texto = tk.Text(janela, wrap=tk.WORD)
