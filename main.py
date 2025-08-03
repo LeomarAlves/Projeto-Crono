@@ -6,6 +6,7 @@ import json
 import os
 
 dados_extraidos = []
+tabelas_pontuacao = []
 
 def abrir_janela_tabela():
     janela_tabela = tk.Toplevel()
@@ -169,13 +170,78 @@ def salvar_json():
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao salvar JSON: {e}")
 
+def carregar_tabelas():
+    global tabelas_pontuacao
+
+    caminho = "tabelas_pontuacao.json"
+    if os.path.exists(caminho):
+        with open(caminho, "r", encoding="utf-8") as f:
+            tabelas_pontuacao = json.load(f)
+            nomes = [t["nome"] for t in tabelas_pontuacao]
+            if nomes:
+                tabela_selecionada.set(nomes[0])
+                menu_tabelas["menu"].delete(0, "end")
+                for nome in nomes:
+                    menu_tabelas["menu"].add_command(
+                        label=nome,
+                        command=lambda n=nome: selecionar_tabela(n)
+                        )
+                    
+def selecionar_tabela(nome):
+    tabela_selecionada.set(nome)
+    tabela = next((t for t in tabelas_pontuacao if t["nome"] == nome), None)
+    if not tabela:
+        messagebox.showerror("Erro", "Tabela não encontrada")
+        return
+    
+    pontos_por_posicao = tabela["pontos"]
+
+    for piloto in dados_extraidos:
+        pos = piloto.get("posicao")
+        piloto["pontos"] = pontos_por_posicao.get(pos, 0)
+
+    linhas = [
+        f"Posição: {d['posicao']} | Nº: {d['numero']} | Nome: {d['nome']} | Categoria: {d['categoria']} | Pontos: {d['pontos']}"
+        for d in dados_extraidos
+    ]
+
+    caixa_texto.delete("1.0", tk.END)
+    caixa_texto.insert(tk.END, "\n".join(linhas))
 
 
+def carregar_json():
+    caminho = filedialog.askopenfilename(
+        title="Abrir arquivo de resultados (.json)",
+        filetypes=[("Arquivos JSON", "*.json")]
+    )
+    if not caminho:
+        return
+
+    try:
+        with open(caminho, "r", encoding="utf-8") as f:
+            resultados = json.load(f)
+
+        if isinstance(resultados, list):
+            global dados_extraidos
+            dados_extraidos = resultados  # atualiza a variável global
+
+            linhas = [
+                f"Posição: {d['posicao']} | Nº: {d['numero']} | Nome: {d['nome']} | Categoria: {d['categoria']} | Pontos: {d.get('pontos', 0)}"
+                for d in resultados
+            ]
+            caixa_texto.delete("1.0", tk.END)
+            caixa_texto.insert(tk.END, "\n".join(linhas))
+        else:
+            messagebox.showerror("Erro", "Formato inválido de dados.")
+    except Exception as e:
+        messagebox.showerror("Erro", f"Erro ao carregar JSON: {e}")
 
 
 janela = tk.Tk()
 janela.title("Extrator de Dados de Pilotos")
 janela.geometry("700x500")
+
+tabela_selecionada = tk.StringVar()
 
 botao = tk.Button(janela, text="Selecionar PDF", command=selecionar_pdf)
 botao.pack(pady=10)
@@ -185,9 +251,17 @@ botao_salvar.pack(pady=10)
 btn_nova_tabela = tk.Button(janela, text="Criar Nova Pontuação", command=abrir_janela_tabela)
 btn_nova_tabela.pack(pady=10)
 
+btn_abrir_json = tk.Button(janela, text="Abrir Resultados JSON", command=carregar_json)
+btn_abrir_json.pack(pady=5)
+
+tk.Label(janela, text="Tabela de Pontuação:").pack()
+menu_tabelas = tk.OptionMenu(janela, tabela_selecionada, "")
+menu_tabelas.pack(pady=5)
 
 caixa_texto = tk.Text(janela, wrap=tk.WORD)
 caixa_texto.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+carregar_tabelas()
 
 janela.mainloop()
 
