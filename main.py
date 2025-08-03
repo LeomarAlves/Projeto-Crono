@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from collections import defaultdict
 import pdfplumber
 import re
 import json
@@ -56,19 +57,21 @@ def abrir_janela_tabela():
     
     tk.Button(janela_tabela, text="Salvar Tabela", command=salvar_tabela).pack(pady=10)
 
-def extrair_info_pilotos(texto):
-    linhas = [linha.strip() for linha in texto.splitlines() if linha.strip() != ""]
+import re
 
+def extrair_info_pilotos(texto):
+    linhas = [linha.strip() for linha in texto.splitlines() if linha.strip()]
+    
     dados = []
-    lendo_tabela = False
+    lendo_dados = False
     posicoes_opcionais = True
 
     for linha in linhas:
-        if linha.startswith("Pos No. Name"):
-            lendo_tabela = True
+        if "Pos No." in linha and "Name" in linha and "Class" in linha:
+            lendo_dados = True
             continue
 
-        if lendo_tabela:
+        if lendo_dados:
             if "Margin of Victory" in linha:
                 break
 
@@ -80,16 +83,21 @@ def extrair_info_pilotos(texto):
             if len(partes) < 4:
                 continue
 
+            # tentativa de identificar categoria por regex
+            match = re.search(r"\b([A-Z]{2,3})\b", linha)
+            categoria = match.group(1) if match else "?"
+
             if posicoes_opcionais:
                 pos = partes[0]
                 num = partes[1]
-                nome = " ".join(partes[2:-6])
-                categoria = partes[-6]
+                resto = linha.split(num, 1)[1].strip()
             else:
                 pos = "-"
                 num = partes[0]
-                nome = " ".join(partes[1:-6])
-                categoria = partes[-6]
+                resto = linha.split(num, 1)[1].strip()
+
+            nome_ate_categoria = resto.split(categoria)[0].strip()
+            nome = nome_ate_categoria
 
             dados.append({
                 "posicao": pos,
@@ -99,9 +107,6 @@ def extrair_info_pilotos(texto):
             })
 
     return dados
-
-
-
 
 
 def selecionar_pdf():
@@ -171,8 +176,7 @@ def carregar_tabelas():
                 for nome in nomes:
                     menu_tabelas["menu"].add_command(
                         label=nome,
-                        command=lambda n=nome: selecionar_tabela(n)
-                        )
+                        command=lambda n=nome: selecionar_tabela(n))
                     
 def selecionar_tabela(nome):
     tabela_selecionada.set(nome)
@@ -223,6 +227,35 @@ def carregar_json():
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao carregar JSON: {e}")
 
+def gerar_ranking():
+    arquivos = filedialog.askopenfilenames(
+        title="Selecionar Baterias",
+        filetypes=[("Arquivos JSON", "*.json")]
+    )
+    if not arquivos:
+        return
+    
+    pontuacao_total = defaultdict(int)
+
+    try:
+        for caminho in arquivos:
+            with open(caminho, "r", encoding="utf-8") as f:
+                bateria = json.load(f)
+
+            for piloto in bateria:
+                nome = piloto.get("nome")
+                pontos = int(piloto.get("pontos", 0))
+                pontuacao_total[nome] += pontos
+
+        ranking = sorted(pontuacao_total.items(), key=lambda x: x[1], reverse=True)
+
+        linhas = [f"{i+1}º - {nome}: {pontos}" for i, (nome,pontos) in enumerate(ranking)]
+
+        caixa_texto.delete("1.0", tk.END)
+        caixa_texto.insert(tk.END, "\n".join(linhas))
+
+    except Exception as e:
+        messagebox.showerror("Erro", f"Erro ao gerar ranking: {e}")
 
 janela = tk.Tk()
 janela.title("Extrator de Dados de Pilotos")
@@ -232,8 +265,12 @@ tabela_selecionada = tk.StringVar()
 
 botao = tk.Button(janela, text="Selecionar PDF", command=selecionar_pdf)
 botao.pack(pady=10)
+
 botao_salvar = tk.Button(janela, text="Salvar", command=salvar_json)
 botao_salvar.pack(pady=10)
+
+btn_ranking = tk.Button(janela, text="Gerar Ranking Geral", command=gerar_ranking)
+btn_ranking.pack(pady=5)
 
 btn_nova_tabela = tk.Button(janela, text="Criar Nova Pontuação", command=abrir_janela_tabela)
 btn_nova_tabela.pack(pady=10)
