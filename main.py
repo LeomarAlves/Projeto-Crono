@@ -76,33 +76,20 @@ def extrair_info_pilotos(texto):
                 posicoes_opcionais = False
                 continue
 
-            # Separar por partes com expressão regular
             partes = linha.split()
+            if len(partes) < 4:
+                continue
+
             if posicoes_opcionais:
-                # Ex: 1 8 Miguel Facchini F4 ...
-                if len(partes) >= 4:
-                    pos = partes[0]
-                    num = partes[1]
-                    # Nome é tudo entre o número e a categoria (até encontrar algo que parece ser "F4", "FL 170" etc.)
-                    for i in range(2, len(partes)):
-                        if re.match(r"^(F4|FL|FT|Cadete|Mirim)", partes[i]):
-                            categoria = partes[i]
-                            nome = " ".join(partes[2:i])
-                            break
-                    else:
-                        continue  # Não encontrou categoria, pula
+                pos = partes[0]
+                num = partes[1]
+                nome = " ".join(partes[2:-6])
+                categoria = partes[-6]
             else:
-                # Sem posição: ex: 86 Leonardo Tasca F4 ...
-                if len(partes) >= 3:
-                    pos = "-"
-                    num = partes[0]
-                    for i in range(1, len(partes)):
-                        if re.match(r"^(F4|FL|FT|Cadete|Mirim)", partes[i]):
-                            categoria = partes[i]
-                            nome = " ".join(partes[1:i])
-                            break
-                    else:
-                        continue
+                pos = "-"
+                num = partes[0]
+                nome = " ".join(partes[1:-6])
+                categoria = partes[-6]
 
             dados.append({
                 "posicao": pos,
@@ -111,8 +98,8 @@ def extrair_info_pilotos(texto):
                 "categoria": categoria
             })
 
-
     return dados
+
 
 
 
