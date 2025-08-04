@@ -1,31 +1,34 @@
-from collections import defaultdict
-
-def gerar_ranking():
-    arquivos = filedialog.askopenfilenames(
-        title="Selecionar arquivos de baterias (.json)",
-        filetypes=[("Arquivos JSON", "*.json")]
-    )
-    if not arquivos:
+def abrir_janela_pontos_extras():
+    if not dados_extraidos:
+        messagebox.showwarning("Aviso", "Nenhum dado carregado.")
         return
 
-    pontuacao_total = defaultdict(int)
+    janela_extra = tk.Toplevel()
+    janela_extra.title("Adicionar Pontos Extras")
+    janela_extra.geometry("400x200")
 
-    try:
-        for caminho in arquivos:
-            with open(caminho, "r", encoding="utf-8") as f:
-                bateria = json.load(f)
+    tk.Label(janela_extra, text="Selecione o piloto:").pack(pady=5)
 
-            for piloto in bateria:
-                nome = piloto.get("nome")
-                pontos = int(piloto.get("pontos", 0))
-                pontuacao_total[nome] += pontos
+    nomes = [piloto["nome"] for piloto in dados_extraidos]
+    nome_var = tk.StringVar(janela_extra)
+    nome_var.set(nomes[0])
+    tk.OptionMenu(janela_extra, nome_var, *nomes).pack(pady=5)
 
-        # Gerar lista ordenada por pontuação
-        ranking = sorted(pontuacao_total.items(), key=lambda x: x[1], reverse=True)
+    tk.Label(janela_extra, text="Pontos extras:").pack(pady=5)
+    entrada_pontos = tk.Entry(janela_extra)
+    entrada_pontos.pack(pady=5)
 
-        linhas = [f"{i+1}º - {nome}: {pontos} pontos" for i, (nome, pontos) in enumerate(ranking)]
-        caixa_texto.delete("1.0", tk.END)
-        caixa_texto.insert(tk.END, "\n".join(linhas))
+    def aplicar_pontos():
+        try:
+            pontos_extras = int(entrada_pontos.get())
+            for piloto in dados_extraidos:
+                if piloto["nome"] == nome_var.get():
+                    piloto["pontos_extras"] = pontos_extras
+                    break
+            atualizar_interface()
+            janela_extra.destroy()
+        except ValueError:
+            messagebox.showerror("Erro", "Digite um valor numérico válido.")
 
-    except Exception as e:
-        messagebox.showerror("Erro", f"Erro ao gerar ranking: {e}")
+    tk.Button(janela_extra, text="Aplicar", command=aplicar_pontos).pack(pady=10)
+
